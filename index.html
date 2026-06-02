@@ -38,6 +38,7 @@
             <div class="header-left">
                 <h1>💰 Mis Ahorros</h1>
             </div>
+            <button class="automation-btn" onclick="openAutomationMenu()" title="Menú de Automatizaciones">☰</button>
             <button class="settings-btn" onclick="openSettings()">⚙️</button>
         </header>
 
@@ -280,6 +281,94 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeConfirmDelete()">Cancelar</button>
                 <button class="btn-danger" onclick="deleteGoal()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de automatizaciones -->
+    <div id="automation-modal" class="modal">
+        <div class="modal-content" style="max-width: 440px;">
+            <div class="modal-header">
+                <button class="back-btn" id="automation-back-btn" onclick="closeAutomationMenu()">←</button>
+                <h3 class="modal-title">Reglas de Automatización</h3>
+            </div>
+            <div class="modal-body">
+                <div id="automation-list-view">
+                    <button class="btn-primary" onclick="showCreateAutomationForm()" style="width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>➕</span> Crear Regla
+                    </button>
+                    <div id="automation-rules-list" class="automation-rules-list">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                </div>
+
+                <div id="automation-form-view" style="display: none;">
+                    <h4 id="automation-form-title" style="margin-bottom: 16px;">Nueva Regla</h4>
+                    <input type="hidden" id="automation-id">
+                    
+                    <div class="form-group">
+                        <label for="automation-goal">Selección de Cuenta *</label>
+                        <select id="automation-goal" required></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo de Acción *</label>
+                        <div class="action-type-selector" style="display: flex; gap: 12px; margin-bottom: 10px;">
+                            <button type="button" id="action-add-btn" class="btn-action active-add" onclick="setAutomationAction('add')" style="flex: 1; border: 2px solid var(--border-color); background: rgba(255,255,255,0.05); color: var(--text-secondary);">Ingreso (+)</button>
+                            <button type="button" id="action-remove-btn" class="btn-action" onclick="setAutomationAction('remove')" style="flex: 1; border: 2px solid var(--border-color); background: rgba(255,255,255,0.05); color: var(--text-secondary);">Retiro (-)</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="automation-amount">Monto *</label>
+                        <input type="text" id="automation-amount" min="0.01" step="0.01" placeholder="0.00" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="automation-frequency">Frecuencia Temporal *</label>
+                        <select id="automation-frequency" required>
+                            <option value="daily">Cada día</option>
+                            <option value="weekly">Cada semana</option>
+                            <option value="monthly">Cada mes</option>
+                            <option value="yearly">Cada año</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="automation-note">Campo de Nota/Concepto *</label>
+                        <input type="text" id="automation-note" placeholder="Ej: Agua, Luz, Ahorro..." required>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button class="btn-secondary" onclick="hideAutomationForm()" style="flex: 1;">Cancelar</button>
+                        <button class="btn-primary" onclick="saveAutomationRule()" style="flex: 1;">Guardar Regla</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de opción de nota para automatizaciones (A/B) -->
+    <div id="automation-option-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px; margin-top: 15%;">
+            <div class="modal-header">
+                <h3>Cambio de Nota</h3>
+            </div>
+            <div class="modal-body">
+                <p>Has cambiado la nota/concepto de esta programación. ¿Cómo deseas aplicar este cambio?</p>
+                <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px;">
+                    <button class="btn-primary" onclick="confirmNoteChangeOption('A')" style="text-align: left; padding: 14px; min-height: 70px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
+                        <span style="font-weight: 700; font-size: 15px;">Opción A: Solo futuros movimientos</span>
+                        <span style="font-size: 11px; font-weight: 400; opacity: 0.8; margin-top: 4px; text-align: left;">Mantiene las notas anteriores intactas en el historial.</span>
+                    </button>
+                    <button class="btn-primary" onclick="confirmNoteChangeOption('B')" style="text-align: left; padding: 14px; min-height: 70px; background: var(--gradient-success); display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
+                        <span style="font-weight: 700; font-size: 15px;">Opción B: Actualizar historial pasado</span>
+                        <span style="font-size: 11px; font-weight: 400; opacity: 0.8; margin-top: 4px; text-align: left;">Actualiza la nota también en el historial pasado para mantener el registro ordenado.</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                <button class="btn-secondary" onclick="closeAutomationOptionModal()">Cancelar</button>
             </div>
         </div>
     </div>

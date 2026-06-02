@@ -1265,3 +1265,148 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     text-align: center;
     padding: 20px 0;
 }
+
+/* ===== ESTILOS PARA MENÚ Y REGLAS DE AUTOMATIZACIÓN ===== */
+.automation-btn {
+    position: absolute;
+    top: 75px;
+    right: 70px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    color: var(--text-primary);
+    font-size: 18px;
+    z-index: 10;
+}
+
+@media screen and (max-width: 768px) {
+    .automation-btn {
+        top: 85px;
+    }
+}
+
+@supports (padding: max(0px)) {
+    .automation-btn {
+        top: max(80px, env(safe-area-inset-top, 0px) + 45px);
+        right: calc(max(20px, env(safe-area-inset-right, 0px)) + 50px);
+    }
+}
+
+.automation-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.automation-rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-top: 10px;
+}
+
+.automation-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.automation-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+.automation-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.automation-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.automation-card-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.automation-card-schedule {
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+.automation-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 12px;
+}
+
+.automation-card-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+}
+
+.automation-card-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.automation-card-btn.delete:hover {
+    background: rgba(255, 107, 107, 0.2);
+    color: var(--danger-color);
+}
+
+.action-type-selector .btn-action {
+    transition: all 0.3s ease;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.action-type-selector .btn-action.active-add {
+    background: var(--gradient-success) !important;
+    color: white !important;
+    border-color: var(--success-color) !important;
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+}
+
+.action-type-selector .btn-action.active-remove {
+    background: var(--gradient-danger) !important;
+    color: white !important;
+    border-color: var(--danger-color) !important;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}

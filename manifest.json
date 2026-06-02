@@ -2,12 +2,12 @@
   "name": "AhorroApp - Tus Metas de Ahorro",
   "short_name": "AhorroApp",
   "description": "Tu compañero personal para alcanzar metas financieras",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",
   "orientation": "portrait",
-  "scope": "/",
+  "scope": "./",
   "lang": "es",
   "dir": "ltr",
   "prefer_related_applications": false,
@@ -87,7 +87,7 @@
       "name": "Nueva Meta",
       "short_name": "Nueva Meta",
       "description": "Crear una nueva meta de ahorro",
-      "url": "/?action=new-goal",
+      "url": "./?action=new-goal",
       "icons": [
         {
           "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%234CAF50'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>+</text></svg>",

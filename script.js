@@ -1,6 +1,7 @@
 // ===== APLICACIÓN DE AHORRO - SCRIPT PRINCIPAL =====
 // Datos globales
 let goals = [];
+let automations = [];
 const settings = {
     language: 'es',
     currency: 'USD'
@@ -1269,6 +1270,8 @@ function handleFileImport(event) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Iniciando aplicación...');
     loadFromStorage();
+    loadAutomationsFromStorage();
+    processAutomations();
     updateGoalsUI();
     updateTotals();
     updateUILanguage(); // Actualizar la interfaz con el idioma guardado
@@ -1277,6 +1280,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupNumberFormatting('goal-amount');
     setupNumberFormatting('money-amount');
     setupNumberFormatting('edit-goal-amount');
+    setupNumberFormatting('automation-amount');
     
     // Configurar drag and drop después de cargar las metas
     setupDragAndDrop();
@@ -2225,4 +2229,430 @@ function drawGoalChart(goal) {
     
     container.appendChild(svg);
     console.log("📊 Gráfico de barras renderizado correctamente");
+}
+
+// ===== LOGICA DE AUTOMATIZACION =====
+
+let currentAutomationAction = 'add'; // 'add' o 'remove'
+let pendingNoteChangeRule = null;
+let pendingNoteChangeData = null;
+
+// Cargar y guardar en storage
+function loadAutomationsFromStorage() {
+    try {
+        const automationsData = localStorage.getItem("miAhorroAutomations");
+        if (automationsData) {
+            automations = JSON.parse(automationsData);
+            console.log('✅ Automatizaciones cargadas:', automations.length);
+        }
+    } catch (error) {
+        console.error('❌ Error cargando automatizaciones:', error);
+    }
+}
+
+function saveAutomationsToStorage() {
+    try {
+        localStorage.setItem("miAhorroAutomations", JSON.stringify(automations));
+        console.log('✅ Automatizaciones guardadas');
+    } catch (error) {
+        console.error('❌ Error guardando automatizaciones:', error);
+    }
+}
+
+// Fechas y cálculos de ejecución
+function calculateFirstRunDate(frequency) {
+    const now = new Date();
+    const firstRun = new Date(now);
+    // Programado justo después de las 1:00 AM (ej. 1:00:05 AM)
+    firstRun.setHours(1, 0, 5, 0);
+    
+    // Si ya pasó la 1:00 AM de hoy, la primera ejecución es mañana
+    if (now.getHours() >= 1) {
+        firstRun.setDate(firstRun.getDate() + 1);
+    }
+    return firstRun.toISOString();
+}
+
+function calculateNextRunDate(fromDate, frequency) {
+    const date = new Date(fromDate);
+    date.setHours(1, 0, 5, 0); // Asegurar hora
+    
+    switch (frequency) {
+        case 'daily':
+            date.setDate(date.getDate() + 1);
+            break;
+        case 'weekly':
+            date.setDate(date.getDate() + 7);
+            break;
+        case 'monthly':
+            date.setMonth(date.getMonth() + 1);
+            break;
+        case 'yearly':
+            date.setFullYear(date.getFullYear() + 1);
+            break;
+    }
+    return date.toISOString();
+}
+
+// Procesamiento de automatizaciones en segundo plano
+function processAutomations() {
+    const now = new Date();
+    let updated = false;
+    
+    console.log('⏰ Procesando reglas de automatización...');
+    
+    automations.forEach(rule => {
+        let nextRunDate = new Date(rule.nextRun);
+        const goal = goals.find(g => g.id === Number(rule.goalId));
+        
+        if (!goal) {
+            console.warn(`⚠️ Meta vinculada ${rule.goalId} no encontrada para la regla ${rule.note}`);
+            return;
+        }
+        
+        // Ejecutar todos los ciclos pendientes transcurridos
+        while (now >= nextRunDate) {
+            console.log(`⚡ Ejecutando regla '${rule.note}' programada para ${nextRunDate.toISOString()}`);
+            
+            const amount = rule.amount;
+            const actionText = rule.actionType === 'add' ? 'Ingreso automático' : 'Retiro automático';
+            const transaction = {
+                id: Date.now() + Math.random(),
+                amount: rule.actionType === 'add' ? amount : -amount,
+                note: `${actionText} - Nota: ${rule.note}`,
+                date: nextRunDate.toISOString(),
+                type: rule.actionType,
+                automationId: rule.id
+            };
+            
+            // Alterar saldo SOLO en esa cuenta (Aislamiento de Cuentas)
+            if (rule.actionType === 'add') {
+                goal.currentAmount += amount;
+            } else {
+                goal.currentAmount = Math.max(0, goal.currentAmount - amount);
+            }
+            
+            if (!goal.transactions) goal.transactions = [];
+            goal.transactions.unshift(transaction);
+            
+            // Actualizar tiempos
+            rule.lastRun = nextRunDate.toISOString();
+            nextRunDate = new Date(calculateNextRunDate(nextRunDate, rule.frequency));
+            rule.nextRun = nextRunDate.toISOString();
+            updated = true;
+        }
+    });
+    
+    if (updated) {
+        saveToStorage();
+        saveAutomationsToStorage();
+        updateGoalsUI();
+        updateTotals();
+        
+        // Si el detalle de la meta está abierto, refrescarlo
+        if (currentGoalId) {
+            const detailModal = document.getElementById("goal-detail-modal");
+            if (detailModal && detailModal.style.display === "flex") {
+                openGoalDetail(currentGoalId);
+            }
+        }
+    }
+}
+
+// UI: Abrir y Cerrar Menú de Automatizaciones
+function openAutomationMenu() {
+    const modal = document.getElementById("automation-modal");
+    if (modal) {
+        modal.style.display = "flex";
+        showAutomationListView();
+    }
+}
+
+function closeAutomationMenu() {
+    const modal = document.getElementById("automation-modal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+function showAutomationListView() {
+    document.getElementById("automation-list-view").style.display = "block";
+    document.getElementById("automation-form-view").style.display = "none";
+    renderAutomationsList();
+}
+
+// Render listado
+function renderAutomationsList() {
+    const container = document.getElementById("automation-rules-list");
+    if (!container) return;
+    
+    if (automations.length === 0) {
+        container.innerHTML = `<p class="no-transactions" style="text-align: center; margin-top: 20px;">No tienes reglas de automatización creadas.</p>`;
+        return;
+    }
+    
+    container.innerHTML = automations.map(rule => {
+        const goal = goals.find(g => g.id === Number(rule.goalId));
+        const goalName = goal ? goal.name : 'Cuenta eliminada';
+        const currency = goal ? goal.currency : '';
+        const freqText = {
+            daily: 'Cada día',
+            weekly: 'Cada semana',
+            monthly: 'Cada mes',
+            yearly: 'Cada año'
+        }[rule.frequency];
+        
+        const actionSign = rule.actionType === 'add' ? '+' : '-';
+        const actionColorClass = rule.actionType === 'add' ? 'success' : 'warning';
+        const formattedAmount = formatCurrency(rule.amount, currency || 'USD');
+        
+        return `
+            <div class="automation-card">
+                <div class="automation-card-info">
+                    <div class="automation-card-title">
+                        <span>${rule.actionType === 'add' ? '📈' : '📉'}</span>
+                        <strong>${rule.note}</strong>
+                    </div>
+                    <div class="automation-card-meta">
+                        Cuenta: ${goalName}
+                    </div>
+                    <div class="automation-card-schedule">
+                        Frecuencia: ${freqText} | Monto: <span style="font-weight: 700; color: var(--${actionColorClass}-color)">${actionSign}${formattedAmount}</span>
+                    </div>
+                    <div class="automation-card-schedule" style="font-size: 10px; margin-top: 4px; opacity: 0.7;">
+                        Próxima ejec.: ${new Date(rule.nextRun).toLocaleString()}
+                    </div>
+                </div>
+                <div class="automation-card-actions">
+                    <button class="automation-card-btn" onclick="editAutomationRule('${rule.id}')" title="Editar">✏️</button>
+                    <button class="automation-card-btn delete" onclick="deleteAutomationRule('${rule.id}')" title="Eliminar">🗑️</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Formulario: Crear y Editar
+function showCreateAutomationForm() {
+    document.getElementById("automation-form-title").textContent = "Nueva Regla de Automatización";
+    document.getElementById("automation-id").value = "";
+    
+    // Cargar select de metas
+    setupAutomationGoalSelect();
+    
+    setAutomationAction('add');
+    
+    document.getElementById("automation-amount").value = "";
+    document.getElementById("automation-frequency").value = "daily";
+    document.getElementById("automation-note").value = "";
+    
+    document.getElementById("automation-list-view").style.display = "none";
+    document.getElementById("automation-form-view").style.display = "block";
+}
+
+function hideAutomationForm() {
+    showAutomationListView();
+}
+
+function setupAutomationGoalSelect(selectedId = null) {
+    const select = document.getElementById("automation-goal");
+    if (!select) return;
+    
+    if (goals.length === 0) {
+        select.innerHTML = `<option value="">Crea una meta primero</option>`;
+        return;
+    }
+    
+    select.innerHTML = goals.map(goal => 
+        `<option value="${goal.id}">${goal.name} (${goal.currency})</option>`
+    ).join('');
+    
+    if (selectedId) {
+        select.value = selectedId;
+    }
+}
+
+function setAutomationAction(action) {
+    currentAutomationAction = action;
+    const addBtn = document.getElementById("action-add-btn");
+    const removeBtn = document.getElementById("action-remove-btn");
+    
+    if (action === 'add') {
+        addBtn.className = "btn-action active-add";
+        removeBtn.className = "btn-action";
+    } else {
+        addBtn.className = "btn-action";
+        removeBtn.className = "btn-action active-remove";
+    }
+}
+
+// Guardar regla
+function saveAutomationRule() {
+    const idInput = document.getElementById("automation-id").value;
+    const goalId = document.getElementById("automation-goal").value;
+    const amount = parseFormattedNumber(document.getElementById("automation-amount").value);
+    const frequency = document.getElementById("automation-frequency").value;
+    const note = document.getElementById("automation-note").value.trim();
+    
+    if (!goalId) {
+        alert("Por favor, selecciona una cuenta/meta.");
+        return;
+    }
+    if (!amount || amount <= 0) {
+        alert("Por favor, ingresa un monto válido.");
+        return;
+    }
+    if (!note) {
+        alert("Por favor, ingresa una nota/concepto.");
+        return;
+    }
+    
+    const ruleData = {
+        goalId: goalId,
+        actionType: currentAutomationAction,
+        amount: amount,
+        frequency: frequency,
+        note: note
+    };
+    
+    if (idInput) {
+        // Modo Edición
+        const existingRule = automations.find(r => r.id === idInput);
+        if (existingRule) {
+            // Verificar si cambió la nota
+            if (existingRule.note !== note) {
+                // Almacenar datos temporalmente y mostrar opciones A/B
+                pendingNoteChangeRule = existingRule;
+                pendingNoteChangeData = ruleData;
+                openAutomationOptionModal();
+                return;
+            }
+            
+            // Si la nota no cambió, actualizar el resto de parámetros directamente
+            updateRuleParams(existingRule, ruleData);
+            saveAutomationsToStorage();
+            processAutomations(); // Procesar en caso de que cambie frecuencia y ya deba ejecutarse
+            showAutomationListView();
+        }
+    } else {
+        // Modo Creación (Sin límite de cambios)
+        const newRule = {
+            id: Date.now().toString(),
+            goalId: goalId,
+            actionType: currentAutomationAction,
+            amount: amount,
+            frequency: frequency,
+            note: note,
+            lastRun: null,
+            nextRun: calculateFirstRunDate(frequency),
+            createdAt: new Date().toISOString()
+        };
+        automations.push(newRule);
+        saveAutomationsToStorage();
+        processAutomations();
+        showAutomationListView();
+    }
+}
+
+function updateRuleParams(rule, newData) {
+    rule.goalId = newData.goalId;
+    rule.actionType = newData.actionType;
+    rule.amount = newData.amount;
+    
+    // Si la frecuencia cambió, recalculamos la próxima ejecución a partir de hoy
+    if (rule.frequency !== newData.frequency) {
+        rule.frequency = newData.frequency;
+        rule.nextRun = calculateFirstRunDate(newData.frequency);
+    }
+    
+    rule.note = newData.note;
+}
+
+// Editar Regla
+function editAutomationRule(id) {
+    const rule = automations.find(r => r.id === id);
+    if (!rule) return;
+    
+    document.getElementById("automation-form-title").textContent = "Editar Regla de Automatización";
+    document.getElementById("automation-id").value = rule.id;
+    
+    setupAutomationGoalSelect(rule.goalId);
+    setAutomationAction(rule.actionType);
+    
+    document.getElementById("automation-amount").value = formatNumberInput(rule.amount.toString());
+    document.getElementById("automation-frequency").value = rule.frequency;
+    document.getElementById("automation-note").value = rule.note;
+    
+    document.getElementById("automation-list-view").style.display = "none";
+    document.getElementById("automation-form-view").style.display = "block";
+}
+
+// Eliminar Regla
+function deleteAutomationRule(id) {
+    if (confirm("¿Estás seguro de que deseas eliminar esta regla de automatización?")) {
+        automations = automations.filter(r => r.id !== id);
+        saveAutomationsToStorage();
+        renderAutomationsList();
+    }
+}
+
+// Modales Opción A/B
+function openAutomationOptionModal() {
+    document.getElementById("automation-option-modal").style.display = "flex";
+}
+
+function closeAutomationOptionModal() {
+    document.getElementById("automation-option-modal").style.display = "none";
+    pendingNoteChangeRule = null;
+    pendingNoteChangeData = null;
+}
+
+function confirmNoteChangeOption(option) {
+    if (!pendingNoteChangeRule || !pendingNoteChangeData) return;
+    
+    const rule = pendingNoteChangeRule;
+    const newData = pendingNoteChangeData;
+    const oldNote = rule.note;
+    const newNote = newData.note;
+    
+    // Actualizar parámetros de la regla
+    updateRuleParams(rule, newData);
+    
+    if (option === 'B') {
+        // Actualizar la nota también en el historial pasado para mantener el registro ordenado
+        console.log(`🔄 Opción B: Actualizando historial de transacciones para la regla ${rule.id} (de "${oldNote}" a "${newNote}")`);
+        
+        let txUpdated = 0;
+        goals.forEach(goal => {
+            if (goal.transactions) {
+                goal.transactions.forEach(tx => {
+                    // Buscar coincidencia por automationId o por formato de nota antiguo si no tiene ID
+                    const oldActionTextAdd = `Ingreso automático - Nota: ${oldNote}`;
+                    const oldActionTextRemove = `Retiro automático - Nota: ${oldNote}`;
+                    
+                    const matchesId = tx.automationId === rule.id;
+                    const matchesNote = tx.note === oldActionTextAdd || tx.note === oldActionTextRemove;
+                    
+                    if (matchesId || matchesNote) {
+                        const actionText = tx.amount > 0 ? 'Ingreso automático' : 'Retiro automático';
+                        tx.note = `${actionText} - Nota: ${newNote}`;
+                        tx.automationId = rule.id; // Asegurar que tenga el ID
+                        txUpdated++;
+                    }
+                });
+            }
+        });
+        
+        console.log(`✅ Se actualizaron ${txUpdated} transacciones en el historial`);
+        saveToStorage(); // Guardar cambios en goals
+        updateGoalsUI();
+    } else {
+        console.log('ℹ️ Opción A: Manteniendo intacto el historial anterior.');
+    }
+    
+    saveAutomationsToStorage();
+    processAutomations();
+    
+    closeAutomationOptionModal();
+    showAutomationListView();
 }

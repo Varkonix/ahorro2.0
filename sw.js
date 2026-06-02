@@ -1,10 +1,10 @@
-const CACHE_NAME = 'ahorroapp-v2';
+const CACHE_NAME = 'ahorroapp-v3';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/script.js',
-  '/manifest.json'
+  './',
+  './index.html',
+  './styles.css',
+  './script.js',
+  './manifest.json'
 ];
 
 // Instalar el service worker
@@ -68,7 +68,7 @@ self.addEventListener('fetch', (event) => {
           return response;
         }).catch(() => {
           // Si falla la red, intentar servir desde cache
-          return caches.match('/index.html');
+          return caches.match('./index.html');
         });
       })
   );
