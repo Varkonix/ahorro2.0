@@ -1658,7 +1658,7 @@ function moveGoal(fromIndex, toIndex) {
 // Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./sw.js?v=3')
             .then((registration) => {
                 console.log('SW registered: ', registration);
                 
@@ -2424,6 +2424,7 @@ function renderAutomationsList() {
                     </div>
                 </div>
                 <div class="automation-card-actions">
+                    <button class="automation-card-btn" onclick="executeAutomationImmediate('${rule.id}')" title="Ejecutar Ahora" style="background: rgba(78, 205, 196, 0.2); color: var(--success-color);">⚡</button>
                     <button class="automation-card-btn" onclick="editAutomationRule('${rule.id}')" title="Editar">✏️</button>
                     <button class="automation-card-btn delete" onclick="deleteAutomationRule('${rule.id}')" title="Eliminar">🗑️</button>
                 </div>
@@ -2655,4 +2656,50 @@ function confirmNoteChangeOption(option) {
     
     closeAutomationOptionModal();
     showAutomationListView();
+}
+
+// Ejecutar regla inmediatamente (para pruebas o ejecución manual)
+function executeAutomationImmediate(id) {
+    const rule = automations.find(r => r.id === id);
+    if (!rule) return;
+    
+    const goal = goals.find(g => g.id === Number(rule.goalId));
+    if (!goal) {
+        alert("La cuenta vinculada a esta regla ya no existe.");
+        return;
+    }
+    
+    const amount = rule.amount;
+    const actionText = rule.actionType === 'add' ? 'Ingreso automático' : 'Retiro automático';
+    
+    const transaction = {
+        id: Date.now() + Math.random(),
+        amount: rule.actionType === 'add' ? amount : -amount,
+        note: `${actionText} - Nota: ${rule.note} (Ejecución manual)`,
+        date: new Date().toISOString(),
+        type: rule.actionType,
+        automationId: rule.id
+    };
+    
+    // Aislamiento de cuentas
+    if (rule.actionType === 'add') {
+        goal.currentAmount += amount;
+    } else {
+        goal.currentAmount = Math.max(0, goal.currentAmount - amount);
+    }
+    
+    if (!goal.transactions) goal.transactions = [];
+    goal.transactions.unshift(transaction);
+    
+    // Avanzar la próxima ejecución para mantener el ciclo correcto
+    rule.lastRun = new Date().toISOString();
+    rule.nextRun = calculateNextRunDate(new Date().toISOString(), rule.frequency);
+    
+    saveToStorage();
+    saveAutomationsToStorage();
+    updateGoalsUI();
+    updateTotals();
+    renderAutomationsList();
+    
+    alert(`Ejecutado con éxito. Se aplicó el movimiento '${rule.note}' en tu cuenta.`);
 }
